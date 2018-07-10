@@ -1,0 +1,1436 @@
+---
+  title: 'Hospital Rating Analaysis'
+  author: Xi Palazzolo 
+  date: 02-27-2018
+  output:
+  pdf_document: default
+  html_document: 
+    toc: true
+    toc_depth: 3
+    toc_float: true 
+  
+---
+Xi Palazzolo Explore and Summarize Data: Nationwide Hospital Rating 
+========================================================
+###About This Dataset
+This data set evaluates 4803 hospitals in the US on multiple variables (i.e., 46 variables are included in this evaluation).Hospital Compare is a consumer-oriented website that provides information on the quality of care hospitals are providing to their patients. This information can help consumers make informed decisions about health care. Hospital Compare allows consumers to select multiple hospitals and directly compare performance measure information related to heart attack, emergency department care, preventive care, stroke care, and other conditions. The Centers for Medicare & Medicaid Services (CMS) created the Hospital Compare website to better inform health care consumers about a hospital's quality of care. Hospital Compare provides data on over 4,000 Medicare-certified hospitals, including acute care hospitals, critical access hospitals (CAHs), children's hospitals, Veterans Health Administration (VHA) Medical Centers, and hospital outpatient departments. Hospital Compare is part of an Administration-wide effort to increase the availability and accessibility of information on quality, utilization, and costs for effective, informed decision-making. Hospital rating in the USA consists of three parts: HEDIS (the Healthcare Effectiveness Data and Information Set), CAHPS (Consumer Assessment of Healthcare Providers and Systems) and HOS (Health Outcome Survey). Of these evaluations, HEDIS weights the heaviest in contributing to the rating of a hospital. The original dateset has about 100 variables. Here I only selected variables of interest to study. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Load all of the packages that you end up using in your analysis in this code
+# chunk.
+
+# Notice that the parameter "echo" was set to FALSE for this code chunk. This
+# prevents the code from displaying in the knitted HTML output. You should set
+# echo=FALSE for all code chunks in your file, unless it makes sense for your
+# report to show the code that generated a particular plot.
+
+# The other parameters for "message" and "warning" should also be set to FALSE
+# for other code chunks once you have verified that each plot comes out as you
+# want it to. This will clean up the flow of your report.
+
+library(ggplot2)
+library(maps)
+library(dplyr)
+library(viridis)
+library(magrittr)
+library(plotly)
+library(scales)
+library(leaflet)
+library(rgdal)
+library(mapdata)
+library(lettercase)
+library(tidyr)
+library(tidyverse)
+library(vioplot)
+library(heplots)
+library(gridExtra)
+library(GGally)
+library(heplots)
+library(pspearman)
+
+# Load the Data
+hospital <- data.frame(read.csv('Project_2_data_1.csv', header=1, 
+                                na.strings = 'Not Available'))
+dim(hospital)
+#rename columns
+names(hospital) <- c('Hospital'
+                     ,'City'
+                     ,'State'
+                     ,'Zip_Code'
+                     ,'County'
+                     ,'Rating'
+                     ,'Pat_9'
+                     ,'Pat_8'
+                     ,'Pat_6'
+                     ,'Staff_a_expmed'
+                     ,'Dc_a_comm_well'
+                     ,'Nurse_a_commwell'
+                     ,'Pain_mgt_awell'
+                     ,'Pct_def_rec'
+                     ,'Recv_info_provided'
+                     ,'OP_2'
+                     ,'OP_3b'
+                     ,'OP_4'
+                     ,'OP_5'
+                     ,'OP_18b'
+                     ,'OP_20'
+                     ,'AMI_30_PAY'
+                     ,'HA_value'
+                     ,'OP_23'
+                     ,'READM_30_AMI'
+                     ,'READM_30_STK'
+                     ,'MORT_30_AMI'
+                     ,'MORT_30_STK'
+                     ,'ED_1b'
+                     ,'ED_2b'
+                     ,'MRSA_Inf_score'
+                     ,'MRSA_cases'
+                     ,'C_diff_inf_score'
+                     ,'c_diff_cases'
+                     ,'Lat'
+                     ,'Long'
+                     ,'Type'
+                     ,'Ownership'
+                     ,'ER_Service'
+                     ,'MORT_NC'
+                     ,'SAFETY_CARE_NC'
+                     ,'READM_NC'
+                     ,'PAT_EXP_NC'
+                     ,'EFF_OF_CARE_NC'
+                     ,'TIME_EFF_NC'
+                     ,'EFF_USE_MED_NC')
+#check the head again 
+str(hospital)
+```
+
+Our dataset consists of 46 variables with 4806 observations. Certain variables have many missing values which possibly is due to not able to collect the minimum number of observation for that variable. 
+
+To start explore the dataset, firstly I want to see the distribution of the variables. Histogram is one of the good ways to observe the distribution of variable. Therefore, I chose to plot each variable on a histogram.The reason that I chosed histogram include: 1. I can determine the statistical information of the data from the histogram including the mean, maximum value, and the minimum value. 2. I can count the frequency from the vertical axis; 3. Track and identify trends. and 4. Understand the data distribution. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+hospital_subset <- subset(hospital, select=-c(Hospital, 
+                                              City, 
+                                              State, 
+                                              Zip_Code, 
+                                              County, 
+                                              HA_value, 
+                                              Lat, 
+                                              Long, 
+                                             MORT_NC, 
+                                              ER_Service
+                                              ,SAFETY_CARE_NC, 
+                                             READM_NC
+                                              ,PAT_EXP_NC
+                                              ,EFF_OF_CARE_NC
+                                              ,TIME_EFF_NC
+                                              ,EFF_USE_MED_NC))  
+```
+
+First I want to see the relationship between each variable in one picture, so I ploted a scatterplot matrices. 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+all <- ggcorr(hospital_subset)
+all
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Univariate Plots Section
+#Explore the distribution of percentage of patients 
+#giving hospitals rating of 9 and above 
+pat_9 <- hospital[complete.cases(hospital$Pat_9),]
+pat_9_plot <- ggplot(pat_9, aes(Pat_9))+
+  geom_histogram() +
+  labs(title='Distribution of Patients Rated Hospitals 9 and Above (%)')
+pat_9_plot
+summary(hospital$Pat_9)
+```
+
+Between 60 and 90 percent of patients rated their hopistal as 9 and above. In particular, the median percentage is 73. It follows the pattern of normal distribution. This makes me want to explore more of these patients what factors affected their perception of their rating of a hospital.  
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distribution of percentage of 
+#patients giving hospitals rating of 7-8
+pat_8 <- hospital[complete.cases(hospital$Pat_8),]
+pat_8_plot <- ggplot(pat_8, aes(Pat_8))+
+  geom_histogram() + 
+  labs(title='Distribution of Patients Rated Hopsitals between 7 and 8 (%)')
+pat_8_plot
+summary(hospital$Pat_8)
+```
+
+
+The distribution of patients rated a hospital between 7 and 8 also follows the normal distribution pattern. Different than that of patients rate hospitals of 9, a median of 20% of patients gave their hospital a rating between 7 and 8. 
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distribution of percentage 
+#of patients giving hospitals rating of 6 and below 
+pat_6 <- hospital[complete.cases(hospital$Pat_6),]
+pat_6_plot <- ggplot(pat_6, aes(Pat_6))+
+  geom_histogram()+ 
+  labs(title='Distribution of Patients Rated Hopsitals between 6 and below (%)')
+pat_6_plot
+summary(hospital$Pat_6)
+```
+
+
+From the distribution of this variable, I noticed that the distribution started on the low end with a median of 7% of patients giving their hospital a rating of 6 and below.From the above three histograms, I noticed that the majority of patients gave a hospital a rating of 9 and higher. Does that really mean most patients are satisfied with the quality of care of a hospital? Therefore, I decided to dig a little deeper into other variables that may affect patients' perception based on the scatterplot matrices above. 
+
+
+Histogram is a good way to see the overall distribution of how often hospital staff explained to patients about medication prior to them leaving the hospital.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distribution of percentage of patients 
+#indicating that hospital staff always explained their medicine 
+#before leaving the hospital
+staff_med <- hospital[complete.cases(hospital$Staff_a_expmed),]
+staff_plot <- ggplot(staff_med, aes(Staff_a_expmed))+
+geom_histogram()+ 
+labs(title='distribution of percentage of patients 
+indicating that hospital staff always 
+#explained their medicine before leaving the hospital')
+staff_plot
+summary(hospital$Staff_a_expmed)
+```
+
+
+From the distribution above, I noticed that on average, about 65% of patients indicated that hospital staff explained to them about the use of their medication prior to leaving. I think that hospitals would need to improve in this area because it is important to ensure their patients know of the proper use of medication. If patients follow proper instruction on taking medicine, readmission rates and health outcomes could also be improved. 
+
+
+When it comes to explaination about usage of medication, I want to see how well doctors and nurses do in communicating with patients. Since they are the primary care providers, it is important that they maintain a good level of communication with patients. Therefore, I decided to plot histograms to understand the distribution. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distribution of percentage of patients 
+#indicating that their doctors always communicate well  
+doc <- hospital[complete.cases(hospital$Dc_a_comm_well),]
+doc_plot <- ggplot(doc, aes(Dc_a_comm_well))+
+  geom_histogram() + 
+  labs(title='distribution of percentage of patients 
+       indicating that their doctors always communicate well  ')
+doc_plot
+summary(hospital$Dc_a_comm_well)
+```
+
+From the histogram above, I notice that about 65% to 95% of patients indicate that their doctors always have a good communication with them during their visits. In particular, a median percentage of 81 of patients have such rating. This is good to see. I hope that doctors continue to do so and can maybe improve to a median percentage of 90%. Also, since this is a heavy measure in CAHPS, it would be a relatively easy area for hospitals to tackle for improving their star rating. In addition, when doctors maintain a good communication level with patients, it can also help doctors understand more about the health status of their patients, which can ultimately help identify any potential health risk.
+
+Meanwhile, nurses also play an important role in healthcare. Therefore, I chose histogram to observe the distribution of this variable. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distribution of percentage of patients 
+#indicating that their nurse always communicate well  
+nur <- hospital[complete.cases(hospital$Nurse_a_commwell),]
+nur_plot <- ggplot(nur, aes(Nurse_a_commwell))+
+  geom_histogram()+ 
+  labs(title='distribution of percentage of patients 
+       indicating that their nurse always communicate well')
+nur_plot
+summary(hospital$Nurse_a_commwell)
+```
+
+Similar to the level of doctor-patient communication, about 65% to 95% of patients rate that their nurses always communicate well with them during their visits. This is important since nurses are the front line of healthcare. When a patient visit the clinic, nurses are the first one to evaluate the overall condition of the patient. Therefore, when nurses communicate well with the patients, it helps the collection of information, which will be then used by doctors for further diagnosis. This is also a relatively easy area of improvement for hospitals when hoping to increase their star rating. 
+
+In summary, I feel that with doctors and nurses maintain good communications with patients, it not only helps improve patients' perception of the hospital, but also help improve the quality of care. Therefore, I feel that hospitals should emphasize in this area. 
+
+
+When talking about healthcare, one main aspect is pain management. Therefore, I again chose histogram to observe the distribution of this variable. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distribution of percentage of patients 
+#who indicating that their hospital pain management always well controlled
+pain <- hospital[complete.cases(hospital$Pain_mgt_awell),]
+pain_plot <- ggplot(pain, aes(Pain_mgt_awell)) + 
+  geom_histogram()+
+  labs(title='distribution of percentage of patients who 
+       indicating that their hospital pain management always well controlled')
+pain_plot
+summary(hospital$Pain_mgt_awell)
+```
+
+From the above histogram, I see that 60% to 85% of patients (a median of 71%) indicated that they always received good pain management during their visit to the hospital. I think this is a good news because when people visit the hospital, one of the symptoms is pain. By reducing the level of pain, it helps relieve the stress of patients. However, this could be a controversial aspect due to the most recent hot discussion on over prescription of pain medicine which leads to overdose among some people. 
+
+Then how about recovery information provided to patients prior to them leaving the hospital? I therefore plotted a histogram to observe the distribution of this variable. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distribution of percentage of patients 
+#who indicated that they always receive information from staff
+#on recovery before leaving the hospital 
+recv <- hospital[complete.cases(hospital$Recv_info_provided),]
+recv_plot <- ggplot(recv, aes(Recv_info_provided))  + 
+  geom_histogram(aes(y=..density..), color='black',fill='orchid', alpha=.4)+
+  theme(plot.title = element_text(hjust=0.5))+
+  geom_density(col=2)+
+labs(title='distribution of percentage of patients 
+who indicated that they always receive information from staff
+#on recovery before leaving the hospital')
+recv_plot
+summary(hospital$Recv_info_provided)
+```
+
+
+The distribution of this variable has a slightly higher range than previous variables. About 80% to 95% of patients (a median of 88%) indicated that they always received recovery information from hospital staff. I think this is a very good practice because people should understand how they can take care of themselves at home after receiving treatments from the hospital. This way could potentially help reduce readmission rate if patients follow the proper instruction. 
+
+
+
+
+Since more than 50% of patients feel good about the service and care they received in the hospital, I want to see how likely that they recommend the hospital to others. Therefore, I chose histogram to observe the distribution of this variable. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distrubtion of patients who indicated 
+#that they will definitely recommend the hospital 
+rec <- hospital[complete.cases(hospital$Pct_def_rec),]
+rec_plot <- ggplot(rec, aes(Pct_def_rec)) + 
+  geom_histogram(aes(y=..density..), color='black',fill='orchid', alpha=.4)+
+  theme(plot.title = element_text(hjust=0.5))+
+  geom_density(col=2)+ 
+  labs(title='distrubtion of patients who indicated that 
+       they will definitely recommend the hospital ')
+rec_plot
+summary(hospital$Pct_def_rec)
+```
+
+
+The distribution of percentage of patients that would definately recommend the hospital seems to follow the pattern of that of other variables that I plotted above. Between 55% and 95% of patients (a median of 73%) indicated that they would definately recommend the hospital. This to an extend reflects the level of satisfaction of patients with the quality of care they received in the hospital. 
+
+MRSA--Methicillin-resistant Staphylococcus aureus infection is caused by a type of staph bacteria that has become resistant to many of the antibiotics used to treat ordinary staph infections. Most such infections occur in people who've been in hospitals or other health care settings, such as nursing homes and dialysis centers. It typically is associated with invasive procedures or devices, such as surgeries, intravenous tubing or artificial joints. Therefore, it is important for hospitals to take measures to control such infections within the facility. To observe how well hospitals do in this area, I decided to use histogram to plot the distribution.  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distribution of MRSA infection among hospitals  
+MRSA <- hospital[complete.cases(hospital$MRSA_Inf_score),]
+MRSA_plot <- ggplot(MRSA, aes(MRSA_Inf_score))  + 
+  geom_histogram(aes(y=..density..), color='black',fill='orchid', alpha=.4)+
+  theme(plot.title = element_text(hjust=0.5))+
+  geom_density(col=2)+
+  labs(title='distribution of MRSA infection among hospitals')
+MRSA_plot
+summary(hospital$MRSA_Inf_score)
+```
+
+
+From the distribution above, most hospitals control MRSA infections under 2% (with a median of 0.78%). This is a really good news because it means that hospitals really emphasize on controlling such infections which can lead to a better quality of care and helth outcomes among patients. Then I wonder what the average numder of MRSA infections cases occurred in hospitals during the evaluation period? Therefore I plotted another histogram to observe the distribution of MRSA infection cases in hospitals. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distribution of MRSA infection cases among hospitals  
+mrsa <- hospital[complete.cases(hospital$MRSA_cases),]
+mrsa_plot <- ggplot(mrsa, aes(MRSA_cases))  + 
+  geom_histogram(aes(y=..density..), color='black',fill='orchid', alpha=.4)+
+  theme(plot.title = element_text(hjust=0.5))+
+  geom_density(col=2)+
+  labs(title='distribution of MRSA infection cases among hospitals') 
+mrsa_plot
+summary(hospital$MRSA_cases)
+```
+
+It is relieving to see that most hospitals have zero case of MRSA infection given the median being 0. It suprised me that a hospital had 65 MRSA infection cases. This makes me want to explore deeper into hospitals with high MRSA infection rates and cases and take a look at the features of these hospitals. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#filter the dataset by MRSA infection rate. From the summary of MRSA infection rate, we know that third quantile of rate is 1.2, so I want to filter hospitals with an infection rate of 1.5% and higher. 
+mrsa_h <- hospital_subset %>% filter(MRSA_Inf_score >= 1.5)
+summary(mrsa_h)
+
+```
+
+From the summary above, I noticed that on average, hospitals with higher MRSA infection rates are rated at 2.66. Consistently, their patients tend to have a lower perception of them with only an average of 67.6% rated them at 9 and above. Let's take a further look at the distribution of their ratings. In order to have a clear understanding, I chose heatmap to observe the distribution. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rate_mrsa <- ggplot(mrsa_h, aes(Rating))  + 
+ geom_histogram(aes(y=..density..), color='black',fill='orchid', alpha=.4)+
+  theme(plot.title = element_text(hjust=0.5))+
+  geom_density(col=2)+
+  labs(title='distribution of rating among hospitals with high MRSA infection rates')
+rate_mrsa
+```
+
+From the histogram above, I see that most of these hospitals are rated 2 and 3. What is interesting is that some hospitals with high ratings like 4 and 5 even had high MRSA infection rates. These hopsitals should take all necessary measures to reduce the infection. 
+
+
+Similarly, Clostridium difficile (C.diff) is a bacterium that can cause symptoms ranging from diarrhea to life-threatening inflammation of the colon. Illness from C.diff most commonly affects older adults in hospitals or in long-term care facilities and typically occurs after use of anitibiotic medications. So I want to look at the distribution of C.diff infection among hospitals using histogram. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distribution of C.diff infection rates among hospitals  
+cdiff <- hospital[complete.cases(hospital$C_diff_inf_score),]
+cdiff_plot <- ggplot(cdiff, aes(C_diff_inf_score))  + 
+  geom_histogram(aes(y=..density..), color='black',fill='orchid', alpha=.4)+
+  theme(plot.title = element_text(hjust=0.5))+
+  geom_density(col=2)+
+  labs(title='distribution of C.diff infection rates among hospitals')
+cdiff_plot
+summary(hospital$C_diff_inf_score)
+```
+
+Similar to MRSA infection, most hospitals had relatively low C.diff infection rates: with an average of 0.86%. Then I want to see how many cases exactly occurred in these hospitals using histogram. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distribution of C.diff infection cases among hospitals  
+cdiff_case <- hospital[complete.cases(hospital$c_diff_cases),]
+cdiff_case_plot <- ggplot(cdiff, aes(c_diff_cases))  + 
+  geom_histogram(aes(y=..density..), color='black',fill='orchid', alpha=.4)+
+  theme(plot.title = element_text(hjust=0.5))+
+  geom_density(col=2)+
+  labs(title='distribution of C.diff infection cases among hospitals')+
+  xlim(0, 200)
+cdiff_case_plot
+summary(hospital$c_diff_cases)
+
+```
+
+It is suprising to see that how many more C.diff infection cases occurred than that of MRSA infection cases in hospitals. I think it has to do with the transmission route of C.diff. C.diff are found throughout the environment - in soil, air, water, human and animal fecs, and food products. Compared to MRSA, people are much more easily to contract with C.diff due to its wide spread in the environment. This could indicate that hospitals should pay special attention to environmental hygiene and food safety in order to reduce such infections. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distribution of C.diff infection cases among hospitals  
+ed1 <- hospital[complete.cases(hospital$ED_1b),]
+ed1_plot <- ggplot(ed1, aes(ED_1b))  + 
+  geom_histogram(aes(y=..density..), color='black',fill='orchid', alpha=.4)+
+  theme(plot.title = element_text(hjust=0.5))+
+  geom_density(col=2)+xlim(0, 500)+
+  labs(title='ER Median Time Spent Before Patients were Admitted to The Hospital')
+ed1_plot
+summary(hospital$ED_1b)
+```
+
+From the histogram above, I can see that the time spent at ER prior to being admitted to hospitals is between 100 minutes and 500 minutes (with median of 260 minutes). Then I wonder how long patients spent in ER after being admitted. Therefore I plotted another histogram to look at the distribution. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ 
+ed2 <- hospital[complete.cases(hospital$ED_2b),]
+ed2_plot <- ggplot(ed1, aes(ED_2b))  + 
+  geom_histogram(aes(y=..density..), color='black',fill='orchid', alpha=.4)+
+  theme(plot.title = element_text(hjust=0.5))+
+  geom_density(col=2) + xlim(0, 400) +
+  labs(title='ER Median Time Spent in ER before going to the inpatient room')
+ed2_plot
+summary(hospital$ED_2b)
+```
+
+From this histogram, I notice that patients spent between 10 minutes and 300 minutes waiting before going to inpatient rooms with a median of 87.5 minutes in ER. So I then want to know how much time do patients spend on waiting before they were seen by a healthcare professional? Therefore, I used histogram to see the distribution. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+op_20 <- hospital[complete.cases(hospital$OP_20),]
+
+op20_plot <- ggplot(op_20, aes(OP_20))  + 
+  geom_histogram(aes(y=..density..), color='black',fill='orchid', alpha=.4)+
+  theme(plot.title = element_text(hjust=0.5))+
+  geom_density(col=2)+xlim(0, 100)
+  labs(title='Median Time Spent Before Seen by A Healthcare Professional')
+op20_plot
+summary(hospital$OP_20)
+```
+
+From this distribution, I see that on average, patients waited about 24 minutes in the ER before being seen by a healthcare professional. This makes me wonder what the distribution of ER volume is. So I 
+
+
+
+###Univariate Analysis
+
+###What is the structure of your dataset?
+There are 4,806 hospitals with 46 variables in this dataset. Multiple variables in this dataset are factor variables, including: 
+1. HA_Value of care: average mortality and average payment, average mortality and higer payment, average mortality and lower payment, better mortality and higher payment, better mortality with lower payment, better mortality with average payment, worse mortality with average payment, worse mortality with higher payment. 
+2. Types of hospitals: acute care hospital, critical access hospital, and children's hospital.
+3. Mortality national comparison: above the national average, below the national average, higher than the national average
+4. Hospital ownership: state, district, local, church, private, federal, physician, tribal, and other 
+5. Safety of care national comparison: above the national average, below the national average, higher than the national average
+6. Readmission national comparison: above the national average, below the national average, higher than the national average
+7. Patient experience national comparison: above the national average, below the national average, higher than the national average, and not available 
+8. Effectiveness of care national comparison: above the national average, below the national average, higher than the national average
+9. Timeliness of care national comparison: above the national average, below the national average, higher than the national average
+10. Efficient use of medical imaging national comparison: above the national average, below the national average, higher than the national average
+Other observations: 
+The median hospital rating across the country is 3.151
+For most hospitals, a median of 71% of their patients thought that they always received good pain management 
+For most hospitals, a meidian of 88% patients indicated that they would definitely recommend the hospital to others
+In half of hospitals where payment for patients with heart attack was available, the median amount for their treatment was $23,213
+Of all evaluated hospitals, about 70% (3362 of 4806) of hospitals are acute care hospitals. 
+Of all evaluated hospitals, about 42.8% (2,056 of 4806) of hospitals are privately owned. 
+
+###What is/are the main feature(s) of interest in your dataset?
+The main features of interest in this dataset is hospital rating and patient perception. I'd like to determine which features are best for predicting hospital rating. I suspect that patient perception and quality of care/timeliness can be used to build a predictive model to hospital rating. 
+
+###What other features in the dataset do you think will help support your investigation into your feature(s) of interest?
+Staff communication, usage of medical imaging, waiting time prior to receiving proper treatment can likely be contributing to a better hospital rating and patient perception. 
+This dataset contains lots of variables to evaluate the quality of care of a hospital. 
+
+Did you create any new variables from existing variables in the dataset?
+No new variables were created in this evaluation.
+
+
+###Of the features you investigated, were there any unusual distributions? \Did you perform any operations on the data to tidy, adjust, or change the form \of the data? If so, why did you do this?
+There was no unusual distributions. Missing values were omitted.
+
+###Bivariate Plots Section
+I am curious to see how the level of doctors communication with patients affect patient perception of the hospital. Therefore, I plotted a scatterplot matrices to see an overal picture of their correlations. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+#explore correlation between doctor's communication 
+#on medication and patient rating  
+df <- subset(hospital, select=c(Dc_a_comm_well, Pat_9, Pat_8, Pat_6))
+df_cor <- ggpairs(df)
+df_cor
+```
+
+
+From the matrices above, I noticed that patient perception is closedly correlated with doctor's communication. Therefore, I decided to dig deeper into this correlation using scatterplot, because it shows the relationship between two variables and is the best method to show a non-linear pattern. Also the range of data flow (i.e., maximum and minimum values) can be easily determined. Therefore I chose scatterplot in this section to understand the relationship between two numerical variables. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dc_comm_9 <- ggplot(df, aes(x=Dc_a_comm_well, y=Pat_9)) + 
+  geom_point(alpha=.3) + geom_smooth()
+dc_comm_9
+```
+
+From the scatterplot, I observed that on average, doctors communicate to patients at a level between 70% to 95%. As expected, the more doctors communicate with patients, the higher the patients perceive the hospital. How exactly are these two factors related? I therefore calculated the correlation. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dc_pat_9 <- cor.test(x=df$Dc_a_comm_well, y=df$Pat_9)
+dc_pat_9
+```
+
+The correlation between doctor communication and patient rating of 9 and higher is 0.65, which indicates a medium correlation between these two factors. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dc_comm_8 <- ggplot(df, aes(x=Dc_a_comm_well, y=Pat_8)) + 
+  geom_point(alpha=.3) + geom_smooth()
+dc_comm_8
+```
+
+From this scatterplot, I noticed that as doctor communicate more with patients, the lesslikely that patients rate the hospital between 7 and 8. So I explored the correlation to test my assumption. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dc_pat_8 <- cor.test(x=df$Dc_a_comm_well, y=df$Pat_8)
+dc_pat_8
+```
+
+The correlation between these two aforementioned factor is about -0.56, which indicates a negative correlation between doctor communication and patient giving a rating between 7 and 8. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dc_comm_6 <- ggplot(df, aes(x=Dc_a_comm_well, y=Pat_6)) + 
+  geom_point(alpha=.3) + geom_smooth()
+dc_comm_6
+```
+
+Similarly, when doctors communicate well with patients, patients are less likely to give the hosptial a rating of 6 or lower. How about their correlation? 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dc_pat_6 <- cor.test(x=df$Dc_a_comm_well, y=df$Pat_6)
+dc_pat_6
+```
+
+This shows a stronger correlation than that of patient rating between 7 and 8. There is a negative correlation between doctor communication level and patient perception of hospital of 6 and lower. Then I decided to look at other factors that may affect patients' peception of the hospital, such as whether hospital staff explain about medication. I started from a scatterplot matrices. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#explore correlation between staff's communication 
+#about medication and patient rating 
+df <- subset(hospital, select=c(Staff_a_expmed, Pat_9, Pat_8, Pat_6))
+df_cor <- ggpairs(df)
+df_cor
+```
+
+Similar to doctor communication, staff's explaination about medication seems to have a correlation with patients' perception of the hospital. I then looked futher. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+st_comm_9 <- ggplot(df, aes(x=Staff_a_expmed, y=Pat_9)) + 
+  geom_point(alpha=.3) + geom_smooth() + xlim(40, 100)
+st_comm_9
+```
+
+From the scatterplot above, I observed that about 50% to 80% of staff explained medication usage to patients. The more staff explained about medication, the better the patient perceived the hospital. I then calculated the correlation. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+st_pat_9 <- cor.test(x=df$Staff_a_expmed, y=df$Pat_9)
+st_pat_9
+```
+
+This correlation indicates a positive relationship between patient perception of 9 and above and staff's communication about medication. It is as expected that the more staff explain about patient's medication, the better the patient perceives the hospital. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+st_comm_8 <- ggplot(df, aes(x=Staff_a_expmed, y=Pat_8)) + 
+  geom_point(alpha=.3) + geom_smooth() + xlim(40, 100)
+st_comm_8
+```
+
+Similarly, from the scatterplot and trend line above, I noticed that the more staff explain about medication to patients, the less likely that a patient gives the hospital a rating between 7 and 8. Then I want to look at the actual correlation so I calculated it. 
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+st_pat_8 <- cor.test(x=df$Staff_a_expmed, y=df$Pat_8)
+st_pat_8
+```
+
+As expected, it is a negative correlation between patient rating between 7 and 8 and staff's explaination about medication. How about patients who gave the hospital a rating of 6 and below? 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+st_comm_6 <- ggplot(df, aes(x=Staff_a_expmed, y=Pat_6)) + 
+  geom_point() + geom_smooth() + xlim(40, 100)
+st_comm_6
+```
+
+From this scatterplot, I noticed that for hospitals that received high percentage of rating of 6 and below, only about 50% of their staff were reported to explain to their patients about medication. As the percentage goes up, the likelihood of patients giving a low rating of 6 goes down. This helps me understand that in patient-care provider relationship, communication actually plays an important role, which eventually leads to patients' satisfaction of the quality of care they receive. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+st_pat_6 <- cor.test(x=df$Staff_a_expmed, y=df$Pat_6)
+st_pat_6
+```
+
+Again, looking at the correlation. It is a negative correlation between low rating and staff's explaination about medication. So how about other communications invovled in this patient-care provider relationship? I decided to look into nurses communication starting from a scatterplot matrices. 
+
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#explore nurse communication and patient rating 
+df <- subset(hospital, select=c(Nurse_a_commwell, Pat_9, Pat_8, Pat_6))
+df_cor <- ggpairs(df)
+df_cor
+```
+
+From this matrices, I noticed that patient perception of hospitals is also correlated with nurse communication, which is even stronger than those with doctors and staff's.  
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ns_comm_9 <- ggplot(df, aes(x=Nurse_a_commwell, y=Pat_9)) + 
+  geom_point(alpha=.3) + geom_smooth()
+ns_comm_9
+```
+
+From this scatterplot, I can clearly see the trend where as nurses communicate more with patients, the better and more likely that patients give the hospitals a high rating of 9 and above. Now how about the actual correlation?
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ns_pat_9 <- cor.test(x=df$Nurse_a_commwell, y=df$Pat_9)
+ns_pat_9
+```
+
+As expected, there is a positive correlation between nurse communication and patient rating of 9 and above. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ns_comm_8 <- ggplot(df, aes(x=Nurse_a_commwell, y=Pat_8)) + 
+  geom_point(alpha=.3) + geom_smooth()
+ns_comm_8
+```
+
+In the case when patients rating hospitals between 7 and 8, I noticed the trend where as nurses communicate more with patients, the lesslikly that the patients give the hospital a rating between 7 and 8. Let's take a look at the correlation. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ns_pat_8 <- cor.test(x=df$Nurse_a_commwell, y=df$Pat_8)
+ns_pat_8
+```
+
+As I expeceted, there is a negative correlation between nurses communication and patients rating between 7 and 8. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ns_comm_6 <- ggplot(df, aes(x=Nurse_a_commwell, y=Pat_6)) + 
+  geom_point(alpha=.3) + geom_smooth()
+ns_comm_6
+```
+
+Similar trend was also observed between nurses communication and patients rating of 6 and below. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ns_pat_6 <- cor.test(x=df$Nurse_a_commwell, y=df$Pat_6)
+ns_pat_6
+```
+
+From this correlation, I noticed that the lower the patients rate the hospital, the stronger the correlation is to nurses communication. This could mean that a hospital that received lower rating from patients, an easy and very feasible starting point can be improving patient-care giver communication. Communication is a key to enhance patients perception of the hospital from the above observations. Now, let's take a look at other aspects that can also impact patients perception. Same as before, I started by looking at an overall picture of the correlation. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#explore pain mangement and patient rating 
+df <- subset(hospital, select=c(Pain_mgt_awell, Pat_9, Pat_8, Pat_6))
+df_cor <- ggpairs(df)
+df_cor
+```
+
+From this matrices, it seems like patients also emphasize on the hospital's effort on pain management. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+painmgt_9 <- ggplot(df, aes(x=Pain_mgt_awell, y=Pat_9)) + 
+  geom_point(alpha=.3) + geom_smooth() + xlim(50, 100)
+painmgt_9
+```
+
+From this scatterplot, I noticed that hospitals received patients rating of 9 and above, on average, more than 60% of them were reported to always manage pain well among patients. The trend is that the better a hospital manages pain of a patient, the better and more likely a patient gives the hospital a rating of 9 and above. Let's take a look at the correlation number. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+painmgt_pat_9 <- cor.test(x=df$Pain_mgt_awell, y=df$Pat_9)
+painmgt_pat_9
+```
+
+Like I expected, there is a positive correlation between these two variables. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+painmgt_8 <- ggplot(df, aes(x=Pain_mgt_awell, y=Pat_8)) + 
+  geom_point(alpha=.3) + geom_smooth()
+painmgt_8
+```
+
+From this scatterplot, I see that the trend where as the better the hospital manages pain of a patient, the less likely that a patient gives a rating between 7 and 8. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+painmgt_pat_8 <- cor.test(x=df$Pain_mgt_awell, y=df$Pat_8)
+painmgt_pat_8
+```
+
+Like I assumed, there is a negative correlation between rating between 7 and 8 and pain management. 
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+painmgt_6 <- ggplot(df, aes(x=Pain_mgt_awell, y=Pat_6)) + 
+  geom_point(alpha=.3) + geom_smooth()
+painmgt_6
+```
+
+Similarly, there seems to be a negative relationship between rating of 6 and below and pain management. Let's look at the correlation result. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+painmgt_pat_6 <- cor.test(x=df$Pain_mgt_awell, y=df$Pat_6)
+painmgt_pat_6
+```
+
+Just like I suspected, there is a negative correlation between patient rating of 6 and below and pain management. It makes sense since that it is not a good feeling when you are suffered from pain. So it would help to improve patient perception when healthcare providers can be aware of and take actions to help relieve patients from pain while being cautious about not abusing pain relief. Now let's look at the relationship between patient perception and their likelyhood to recommend the hospital that receive the rating from them. First, I started with a scatterplot matrice.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#explore the correlation between patient rating and patient 
+#tendency to recommend the hospital 
+df <- subset(hospital, select=c(Pct_def_rec, Pat_9, Pat_8, Pat_6))
+df_cor <- ggpairs(df)
+df_cor
+```
+
+From the result above, it seems that there are some strong correlations between patient perception and their tendency of recommendation on the hospital. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rec_pat_9 <- ggplot(df, aes(x=Pct_def_rec, y=Pat_9)) + 
+  geom_point(alpha=.3) + geom_smooth() + xlim(30, 100)
+rec_pat_9
+```
+
+This is a very straigh forward linear positive relationship between patient perception of 9 and higher and the likelihood of them recommending the hospital to others. It makes sense that the higher you rate the hospital, the more likely that you are going to recommend this hospital to others. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rec_9 <- cor.test(x=df$Pct_def_rec, y=df$Pat_9)
+rec_9
+```
+
+The correlation result also indicates the same conclusion as I observed from the scatterplot. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rec_pat_8 <- ggplot(df, aes(x=Pct_def_rec, y=Pat_8)) + 
+  geom_point(alpha=.3) + geom_smooth() + xlim(30, 100)
+rec_pat_8
+```
+
+From this scatterplot, I noticed that the less likely a patient give a rating beween 7 and 8, the more likely a patient is going to recommend the hospital. In other words, the higher the patients rate the hopsital, the more likely that they recommend the hospital to others. Let's see if the correlation confirm this statement. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rec_8 <- cor.test(x=df$Pct_def_rec, y=df$Pat_8)
+rec_8
+```
+
+Yes, the correlation result indicates a negative relationship between patient perception betwen 7 and 8 and their tendency of recommendation. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rec_pat_6 <- ggplot(df, aes(x=Pct_def_rec, y=Pat_6)) + 
+  geom_point(alpha=.3) + geom_smooth() + xlim(30, 100)
+rec_pat_6
+```
+
+Similarly, this scatterplot suggests a negative relationship between these two variables. Let's take a look. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rec_6 <- cor.test(x=df$Pct_def_rec, y=df$Pat_6)
+rec_6
+```
+
+Indeed, the correlation result above shows that there is a negative correlation between patient perception of 6 and lower and their tendency of recommendation. So now we know that communication of healthcare providers plays an important role in improving patient perception of the hospital, which leads to their recommending the hospital to others. Are there any other areas that hospitals can work on improving their patient perceptions? I then plotted another scatterplot matrice to look at provision of recovery information and patient perception. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#explore the correlation between patient rating and staff's provision of 
+#recovery information before patients 
+# leaving the hospital 
+df <- subset(hospital, select=c(Recv_info_provided, Pat_9, Pat_8, Pat_6))
+df_cor <- ggpairs(df)
+df_cor
+```
+
+From the matrice above, I also noticed some correlations between these variables. Now I want to understand further. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rov_pat_9 <- ggplot(df, aes(x=Recv_info_provided, y=Pat_9)) + 
+  geom_point(alpha=.3) + geom_smooth() + xlim(60, 100)
+rov_pat_9
+```
+
+From this scatterplot, I observed that among hospitals received patients rating of 9 and above, they provided recovery information to patients before they left the hospitals at 75% to 90% of the time. The relationship is a positive one, where as the more they provide recovery info to patients, the more likely that patients give them a rating of 9 and above. Let's look at the number. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rov_9 <- cor.test(x=df$Recv_info_provided, y=df$Pat_9)
+rov_9
+```
+
+The correlation is a positive but not a very strong one. Let's look at hospitals receiving lower ratings. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rov_pat_8 <- ggplot(df, aes(x=Recv_info_provided, y=Pat_8)) + 
+  geom_point(alpha=.3) + geom_smooth() + xlim(60, 100)
+rov_pat_8
+```
+
+Similar to hospitals rated at 9 and above, hospitals rated between 7 and 8 provided recovery information to their patients about 75% to 90% of the time. There seems like a negative relationship between these two variables. Let's take a look at how strongly they are correlated with each other. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rov_8 <- cor.test(x=df$Recv_info_provided, y=df$Pat_8)
+rov_8
+```
+
+As expected, it is a negative correlation, but not a strong one. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rov_pat_6 <- ggplot(df, aes(x=Recv_info_provided, y=Pat_6)) + 
+  geom_point(alpha=.3) + geom_smooth() + xlim(60, 100)
+rov_pat_6
+```
+
+Among hospitals rated at 6 and lower, they seemed to be doing a similar job at providing recovery information to their patients as other hospitals. There is a negative relationship between their patient perception and the the provision of recovery information. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rov_6 <- cor.test(x=df$Recv_info_provided, y=df$Pat_6)
+rov_6
+```
+
+As indicated by the correlation result, patient perception of 6 and lower is negatively correlated with the provision of recovery information. Overall, it doesn't seem like the provision of recovery information to patients impact strongly on patients' perception of the hospital. So for hospitals that want to improve patient ratings, they should consider starting from improving doctors and nurses communiation with the patient as well as staff's efforts on explaining the medication to patients. 
+
+Next, I want to take a deeper look at how C.diff infection rate correlate with the hospital star rating. My assumption is that hospitals with high star rating should have lower C.diff infection rate. Here I chose boxplot to demonstrate the distribution because it is easy to see the contunious variable by multiple categories. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#explore the correlation between C.diff infection and rating 
+df <- subset(hospital, select=c(Rating, C_diff_inf_score))
+cdiff_rating <- ggplot(df, aes(x=Rating, 
+                               y=C_diff_inf_score)) + 
+  geom_boxplot(aes(colour=factor(Rating))) +
+  scale_color_brewer(palette = 'Set1') +
+  ylim(0, 4)
+cdiff_rating
+```
+
+From the boxplot above, I don't see too much a difference in C.diff infection rate among hospitals of different star ratings. So I want to calculate the Pearson correlation between the infection rate and hospital star rating. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+model.aov <- aov(C_diff_inf_score ~ Rating, data = hospital)
+summary(model.aov)
+etasq(model.aov, partial = FALSE)
+```
+
+From the result above, the eta square is less than 0.1, which means that there is no significant correlation between rating and C.diff infection rate. The star rating of a hospital does not garuantee a low C.diff rate. How about MRSA infection rate? I used the same method to find out the correlation. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#explore the correlation between MRSA infection and rating 
+df <- subset(hospital, select=c(Rating, MRSA_Inf_score))
+mrsa_rating <- ggplot(df, aes(x=Rating, 
+                               y=MRSA_Inf_score)) + 
+  geom_boxplot(aes(colour=factor(Rating))) +
+  scale_color_brewer(palette = 'Set1') +
+  ylim(0, 4)
+mrsa_rating
+```
+
+From the boxplot above, I noticed a light different in MRSA infection rate among hospitals with different star ratings. But I still need to confirm the statement by calculating the correlation. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+model.aov <- aov(MRSA_Inf_score ~ Rating, data = hospital)
+summary(model.aov)
+etasq(model.aov, partial = FALSE)
+```
+
+Although from the result above, eta square value is higher for MRSA infection rate and rating, but it is still less than 0.1 which means I can't conclude there is any correlation between MRSA infection rate and star rating of hospitals. Next, I want to see the distribution of ownership of hospitals by ratings using heatmap. I chose heatmap because it is very helpful to spot patterns of discrete variables. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distribution of ratings by ownership 
+Ownership_rating <- ggplot(hospital, aes(factor(Ownership), Rating)) + 
+  geom_bin2d(aes(fill = Ownership))+
+  theme_dark()
+Ownership_rating <- ggplotly(Ownership_rating)
+Ownership_rating
+```
+
+From this heatmap, the first thing I notice is that hospitals owned by tribal are rated only at 3 and 4 while state owned hospital star ratings seem to be equaly spread out. Similar pattern is also observed for hospitals of all other ownerships. So I don't think there is any correlation between ownership type and star rating using Spearman method. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+spearman.test(hospital$Rating, hospital$Ownership)
+```
+
+As we can see from the rho value above, the correlation between type of ownership and hospital star rating is very weak as it is only -0.09. 
+
+So next I want to explore whether there is a relationship between hospital rating and ER wait time before a patient being admitted as an inpatient. My assumption is that the wait time in a high rating hospital is no different than that in a lower star rating hospital. The reason being that a high rating hospital could potentially have higher ER volume than lower rating one. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore relationship between rating and ED-1B using a boxplot
+rating_waittime <- ggplot(aes(x=Rating, 
+                              y=ED_1b, 
+                              group=Rating), 
+                          data=hospital)+
+  geom_boxplot(aes(colour=factor(Rating)))+
+  scale_color_brewer(palette = 'Set1') + 
+  ylim(100, 600)
+rating_waittime
+```
+
+From the boxplot above, I observed a trend that as the star rating of a hospital increases, the ER admission wait time decreases. However, the ER wait time in hospital with a star rating of 5 is slighly higher than that of a star rating of 4. In order to understand this trend better, I decided to calculate the Pearson correlation coefficient. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+model.lm <- lm(ED_1b ~ Rating, data = hospital)
+summary(model.lm)
+rsq <- summary(model.lm)$r.squared
+rsq
+sqrt(rsq)
+
+```
+
+From the result above, I cannot conclude that there is a strong correlation between rating and ER admission wait time because it only explained 7.6% of the variance. How about the ER wait time for a patient before being seen by a healthcare professional? Would the hospital rating play a role there? 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#explore the relationship between Rating and OP_20 
+rating_OP_20 <- ggplot(aes(x=Rating, 
+                           y=OP_20), 
+                       data=hospital)+
+  geom_boxplot(aes(colour=factor(Rating)))+
+  scale_color_brewer(palette = 'Set1') + 
+  stat_summary(fun.y=mean, geom="point", shape=5, size=4)
+rating_OP_20 <- ggplotly(rating_OP_20)
+rating_OP_20
+```
+
+From the boxplot above, it seems like the higher rating is a hospital, the shorter the ER wait time is before a patient being seen by a healthcare professional. But is this really a correlation? I then decided to calculate the Pearson correlation coefficient. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+model.lm <- lm(OP_20 ~ Rating, data = hospital)
+summary(model.lm)
+rsq <- summary(model.lm)$r.squared
+rsq
+sqrt(rsq)
+```
+
+From the correlation result, it does not seem like that there is any strong correlation between rating and ER wait time before a patient is seen by a healthcare professional. Then I wonder if the ER wait time has any effect on mortality rate, specifically, among patients presented to the ER with heart attack? So I decided to use heatmap to demonstrate this information because it allows me to directly understand the distribution and count. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#explore the relationship between wait time and AMI mortality rate 
+AMI_MORT_READM <- ggplot(hospital, aes(y=MORT_30_AMI, 
+                                       x=OP_20))+
+  geom_bin2d()+
+  
+  scale_size_continuous(trans='exp', range=c(1,10))
+AMI_MORT_READM
+AMI_MORT_READM_cor <- cor.test(y=hospital$MORT_30_AMI, 
+                               x=hospital$READM_30_AMI)
+AMI_MORT_READM_cor
+```
+
+Looking at this heatmap, it does not seem like that the correlation between mortality rate and ER wait time follows a clear trend. As I see that with lower ER wait time, there are distribution of both high and low mortality rates. This is also proved by the correlation value of 0.058. Although it is a positive relationship, it is not a strong correlation. I think the possible reason for this could be the varied severity of heart attack among patients presented to the ER where many factors play a role. Such factors include the timing when the symptoms are recognized by the patient or the care giver, time spent during transportation, physical and health conditions of the patients, and so on. Then I wonder if the type of hospital would imact the mortality rate. So I made a boxplot which allowed me to observe distribution among multiple categories. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the relationship between rating and mortality rate 
+Rating_MORT_AMI <- ggplot(hospital, aes(x=factor(Type),
+                                        y=MORT_30_AMI, 
+                                        color=Type))+
+  geom_boxplot()+
+  scale_color_brewer(palette = 'Set1') 
+Rating_MORT_AMI
+```
+
+From this boxplot, it does not seem like that the mortality of patients with heart attack has a correlation with the type of hospitals. To be sure,I calculated the correlation. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+model.lm <- lm(MORT_30_AMI ~ Type, data = hospital)
+summary(model.lm)
+rsq <- summary(model.lm)$r.squared
+rsq
+sqrt(rsq)
+```
+
+Just like my assumption, from the correlation result, there is no correlation between these two variables.
+
+Next, I want to see the distribution of ratings among different types of hospitals. Here I used heatmap to visualize the information because it can directly show the difference among variables by category and counts.  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the distribution of ratings among different types of hospitals 
+type_rating <- ggplot(hospital, aes(Rating, Type)) + 
+  geom_bin2d()
+type_rating
+```
+
+From the above heatmap, I can see that most acute care hospitals are rated between 2 and 4 while critical access hospitals are pretty evenly distrubted among these rating categories.
+
+Next, I want to explore the correlation between hospital star rating and readmission rate among patients with heart attack. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore the relationship between rating and readmission rate
+Rating_READM <- ggplot(hospital, aes(factor(Rating), READM_30_AMI))+
+  geom_bin2d()
+Rating_READM
+Rating_READM_cor <- cor.test(x=hospital$Rating, y=hospital$READM_30_AMI)
+Rating_READM_cor
+```
+
+From this heatmap, I notice that as hospital star rating goes up, the count of 30 day readmission rate among patients with heart attack decreases. Whereas, hospials betwee ratings of 2 and 4 have relatively more counts of 30 day readmission, which is quite interesting. To further confirm this negative relationship, I calculated the Pearson correlation with a value of -0.23. It is a negative correlation, although not a strong one. Next, I want to see the relationship between 30 day readmission rate among patients with heart attack and timeliness of heart attack care in the hospital (i.e., outpatients with chest pain or possible heart attack who got drugs to break up blood clots within 30 minutes of arrival). I think that should be a negative relationship. To show the relationship, I used scatterplot. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#readmission and op_2
+b <- ggplot(hospital, aes(x=hospital$OP_2, 
+                          y=hospital$READM_30_AMI 
+                          ))+
+  geom_point(alpha=.3, color='blue')+geom_smooth(method='lm')
+b<- ggplotly(b)
+b
+b_cor <- cor.test(x=hospital$OP_2, y=hospital$READM_30_AMI)
+b_cor
+```
+
+This plot above shos that if a patient with chest pain received drug to break up blood clots within 30 minutes of arrival can reduce their chance of being readmitted to the hospital for the same symptom. The correlation result of -0.17 shows a negative correlation, however, it is a small correlation. 
+
+Then I want to look at whether there is a correlation between type of hospital and timeliness of heart attack care using boxplot to better understand the values of each category. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#explore relationship between HOSPITAL TYPE and OP_2
+a <- hospital[complete.cases(hospital$Type),]
+a<- a[complete.cases(a$OP_2),]
+a <- a %>% group_by(Type)
+b <- ggplot(a, aes(y=a$OP_2, x=a$Type, color=factor(a$Type)))+
+  geom_boxplot()
+b <- ggplotly(b)
+b
+```
+
+From the boxplot above, I notice that on average, critical access hospitals provide more timeliness care to patients with chest pain or possible heart attack within 30 minutes upon arriving at the ER. Let's look at the correlation coefficient. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+b_aov <- lm(OP_2 ~ Type, data=a)
+summary(b_aov)
+c <- cor(a$OP_2, b_aov$fitted)
+c
+rsq <- summary(b_aov)$r.squared
+rsq
+sqrt(rsq)
+```
+
+From the correlation result, it does not suggest a correlation between the hospital type and ER timeliness of care. The difference in average time of care between these two types of hopsitals could due to that there are more acute care hospitals than critical care hospitals, which leads to higher ER vlomes in the former then results in higher average time in timeliness of care. 
+
+###Bivariate Analysis
+
+###Talk about some of the relationships you observed in this part of the investigation. How did the feature(s) of interest vary with other features in the dataset?
+Hospital rating and patient perception rating highly correlate with staff's communication with patients, including doctor and nurse's communication, recovery information given to patients prior to them leaving the hospital, as well as consistent and good pain management. 
+As doctors and nurses communication with patients increase, the higher/better a patient perceives the hospital. In addition, when a patient receives good pain management during his or her visit to the hospital, the patient tends to highly rate the hospital and recommend the hospital to others. Hospitals with higher rating tend to have shorter waiting time in the ER before a patient is seen by a provider. Such hospitals also tend to have slightly lower mortality rate compared to other lower rating hospitals. 
+Did you observe any interesting relationships between the other features \
+(not the main feature(s) of interest)?
+The type of hospital matters when it comes to the timeliness of care. 
+
+###What was the strongest relationship you found?
+The strongest relationship I found in this dataset is that a patient tends to highly recommend a hospital to others when he or she perceive the hospital at a rating of 9 or higher (10 is the highest rating). 
+
+###Multivariate Plots Section
+
+In this section, I want to explore further into the relationship by starting with a scatterplot matrice. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#multivariate session 
+#explore the relationship between hospital overall rating, doctor 
+#communication and patient tendency to recommend
+df <- subset(hospital, select=c(Rating, 
+                                Pct_def_rec, 
+                                Dc_a_comm_well, 
+                                Nurse_a_commwell, 
+                                Pain_mgt_awell, 
+                                Recv_info_provided, 
+                                ED_1b, 
+                                ED_2b)
+             )
+df <- df[complete.cases(df$Rating),]
+df_all <- ggpairs(df)
+df_all
+df <- df %>% group_by('Rating')
+summary(df)
+```
+
+First, I want to see if doctors and nurses in a higher rating hospital communicate more with patients compared to those do in lower rating hospitals. So I used scatterplots with facets by rating to see the trend and patter. Also want to see if there is any correlation between doctors and nurses communication. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Explore relationship between doctor & nurse communication and hospital rating 
+dc_nurse <- ggplot(df, aes(x=Dc_a_comm_well, y=Nurse_a_commwell)) + 
+  geom_smooth()+
+  geom_point(alpha=.3) + facet_wrap(~Rating)
+dc_nurse
+```
+
+From the above scatterplots, I can see a positive linear relation between nurse and doctor communications in hospitals of different ratings. Overall, as doctors communicate more with patients, nurses tend to follow the same pattern. In hospitals with lower rating like 1, doctors communicate with patients between 60% to 80% of the time while nurses communicate with patients between 65% and 80% of the time. This trend increases as the rating of hospital increases. I think this could be because doctors are usually the role model of a hospital where their behaviors can have an impact on other healthcare professionals.  
+
+Next, I further look into the these two variables by plotting them all in one graph. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dc_nurse_1 <- ggplot(df, aes(x=Dc_a_comm_well, 
+                             y=Nurse_a_commwell, 
+                             color=factor(Rating))) +
+  geom_point(alpha=.3) + geom_smooth() +
+  scale_color_brewer(palette = 'Set1')
+dc_nurse_1
+```
+
+From the above scatterplot, I see that the positive correlation between doctor communication and nurse communication with patients. This trend is shared among different star ratings. Then, what exactly is the correlation and how strong is it? 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+dc_nur_cor <- cor.test(x=df$Dc_a_comm_well, y=df$Nurse_a_commwell)
+dc_nur_cor
+```
+
+The correlation value of 0.75 suggests a strong positive correlation between these communication related variables carried out by doctors and nurses. When nurses see doctors communicate more with patients, the more likely they are to communicate more with patients, which as we know from previous plotting and correlation, can lead to a higher patient perception/rating of the hospital. Therefore, a hospital should encourage healthcare professionals to actively engage with patients in order to enhance patient perception. 
+
+Next, I want to see how communication can impact pain management among patients. First, start with nurse communication by hospital rating. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+nurs_pain <- ggplot(df, aes(x=Nurse_a_commwell, 
+                            y=Pain_mgt_awell)) +
+  geom_point(alpha=.3) + facet_wrap(~Rating) + geom_smooth() 
+nurs_pain
+```
+
+From the scatterplots above, I notice that nurses communicate more with patients as star rating of a hospital increases. Similarly, as nurses communicate more with patients, the better the pain management is among patients. Then I want to take another look at these three variables in one scatterplot. 
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+nurs_pain_1 <- ggplot(df, aes(x=Nurse_a_commwell, y=Pain_mgt_awell, color = factor(Rating))) +
+  geom_point(alpha=.3) + 
+  scale_color_brewer(palette = 'Set2')
+nurs_pain_1
+```
+
+Overall, the trend is that as nurses communicate more with patients, the better the pain management is among patients. This makes sense since nurses are the primary care giver of patients during their visit in the hospital. The more they communicate with patients, the better they understand the conditions and needs of the patients. Now I want to calculate the correlation. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+nurs_pain_cor <- cor.test(x=df$Nurse_a_commwell, y=df$Pain_mgt_awell)
+nurs_pain_cor
+```
+
+As expected, there is a positive relationship between nurses communication and pain management among patients. This is a strong correlation. Next, I explored more into the correlation of doctor communication and pain management. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+doc_pain <- ggplot(df, aes(Dc_a_comm_well, Pain_mgt_awell)) + 
+  geom_point(alpha=.3) + geom_smooth()+ facet_wrap(~Rating)
+doc_pain
+```
+
+Similar to the trend demonstrated previously, there seems to be a positive relationship between doctor communication and pain management among pateints. Also, it seems like doctors communicate more in a hospital with higher star rating than those working in a hospital with lower star rating. In addition, the distribution of points seem to be more consistently follow the linear trend in higher star rating settings. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+doc_pain_1 <- ggplot(df, aes(x=Dc_a_comm_well, y=Pain_mgt_awell, color = factor(Rating))) +
+  geom_point(alpha=.4) + 
+  scale_color_brewer(palette = 'Set1') 
+doc_pain_1
+```
+
+The overall relationship between doctor communication and pain management without considering rating also seems to be positively related. What would the correlation tell me?  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+doc_pain_cor <- cor.test(x=df$Dc_a_comm_well, y=df$Pain_mgt_awell )
+doc_pain_cor
+```
+
+The correlation result shows that there indeed is a positive relationship between doctor communication and pain management among patients. However, the correlation is not as strong as that between nurses communication and pain management. This is not difficult to make sense of when consider that most of the care is carried out by nurses. Nurses in a way serve as the bridge between patients and doctors. In addition, the hospital's star rating seems to play a role in staff's communication. 
+
+From those plots above, we can observe that when doctors and nurses communicate well with patients, patient's pain can be better managed. Also, the better a hospital is rated, the better their medical staff communicate with patients as well as their pain management. Then I want to see if doctors communicate well, would patients be more likely to recommend the hospital to others? 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rec_dc <- ggplot(df, aes(x=Dc_a_comm_well, y=Pct_def_rec)) + 
+  geom_point(alpha=.3) + facet_wrap(~Rating)+ geom_smooth()
+rec_dc
+```
+
+From the scatterplots above, I notice a positive trend between doctor communication and patient recommendation. As well, the points spread out more closely along the trend line as the star rating of hospitals goes up. What exactly is the correlation? 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rec_dc_cor <- cor.test(x=df$Dc_a_comm_well, y=df$Pct_def_rec)
+rec_dc_cor
+```
+
+The correlation indicates a mediumly strong positive relationship between doctors communication and patient recommendation. So if a hospital wants to improve patient perception, maybe improving staff's communication with patients could be a good starting point--an easy one. Next I want to look at that relationship between nurses communication and patient recommendation. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rec_nurs <- ggplot(df, aes(x=Nurse_a_commwell, y=Pct_def_rec)) + 
+  geom_point(alpha=.3) + facet_wrap(~Rating) + geom_smooth()
+rec_nurs
+```
+
+A similar trend between nurses communication and patient recommendation is observed. In high star rating hospitals, more nurses communicate with patients, which results in an increase on patient recommendation.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rec_nurs_cor <- cor.test(x=df$Pct_def_rec, y=df$Nurse_a_commwell)
+rec_nurs_cor
+```
+
+The correlation for these two variables is stronger than that between doctor and patient recommendation. Next, I explored the correlation between hospital type, communication and ER wait time. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#explore the correlation among hospital type, and quality of care (i.e., 
+# waiting time, doctor and nurse communication, and pain management)
+df <- subset(hospital, select=c(Type, Dc_a_comm_well, Nurse_a_commwell,
+                                ED_1b, ED_2b))
+df_all_cor <- ggpairs(df)
+df_all_cor
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ed_comm_dc <- ggplot(df, aes(Dc_a_comm_well, ED_1b)) +
+  geom_point(alpha=.3) + facet_wrap(~Type) + geom_smooth()
+ed_comm_dc 
+ed_comm_dc_cor <- cor.test(x=df$Dc_a_comm_well, y=df$ED_1b)
+ed_comm_dc_cor
+```
+
+From the scatterplots above, I obsered that doctors in critical access hospitals tend to have a more consistent communication pattern than that in acute care hospitals. In other words, the ER wait time for patient admission as inpatients decreases as doctors communicate more with patients. This trend is specially clear in critical access hospitals. From the correlation result, it also indicates a negative relationship between these two factors. Next, I want to see how long patients wait to go to inpatient rooms after being admitted as inpatients in different types of hospitals. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ed_2comm_dc <- ggplot(df, aes(Dc_a_comm_well, ED_2b)) + 
+  geom_point(alpha=.3) + facet_wrap(~Type) + geom_smooth()
+ed_2comm_dc
+ed_2comm_dc_cor <- cor.test(x=df$Dc_a_comm_well, y=df$ED_2b)
+ed_2comm_dc_cor
+```
+From these scatterplots above, I observe a similar pattern found from those scatterplots for relationship of doctor communication and ER wait time for admission. It seems like that in critical access hospitals, the ER wait time for going into inpatient rooms tends to be consistently lowered as doctors communicate more with patients. However, the trend is not so consistent in acute care hospitals. The correlation result also confirms this negative relationship. Let's look at the impact of nurses communication and ER wait time for admission. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ed_comm_nur <- ggplot(df, aes(Nurse_a_commwell, ED_1b)) + 
+  geom_point(alpha=.3) + facet_wrap(~Type) + geom_smooth()
+ed_comm_nur
+ed_comm_nur_cor <- cor.test(x=df$Nurse_a_commwell, y=df$ED_1b)
+ed_comm_nur_cor
+```
+
+Similar to those two sets of scatterplots above, ER wait time for admission decreases as nurses communiate more with patients, especially in critical access hospitals. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ed_2comm_nur <- ggplot(df, aes(Nurse_a_commwell, ED_2b)) + 
+  geom_point(alpha=.3) + facet_wrap(~Type) + geom_smooth()
+ed_2comm_nur
+ed_2comm_nur_cor <- cor.test(x=df$Nurse_a_commwell, y=df$ED_2b)
+ed_2comm_nur_cor
+```
+
+From these two plots, we can observe that more people visit the ER at an acute care hospitals since there are more this type of hospitals than critical access hospitals. This can also help explain why the on average, ER wait time for a patient is less in a critical access hospital than that in an acute care hospital. Also, when nurses in these facilities communicates well with patients, the wait time tend to be lowered. From the trends observed above, I notice that the more medical professionals communicate with patients regardless of urgency status, the less time patients would spend in the facility and the better patients perceive the hospital. Next, I want to build some forecasting models to predict rating. 
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#predictive models 
+m1 <- lm(formula = I(Rating)~I(Dc_a_comm_well), data=hospital)
+summary(m1)
+```
+
+This model only explains 8% of the variance, which is not a strong predictive model for rating. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+m2 <- lm(formula = I(Rating)~I(Dc_a_comm_well) + 
+           Nurse_a_commwell, 
+         data=hospital)
+summary(m2)
+```
+
+This model explains 14% of the variance. This suggests that communication improvement alone will not have greatly increase the star rating of a hospital. Hospitals should also focus on other areas. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+m3 <- lm(formula = I(Rating) ~ I(Dc_a_comm_well) + Nurse_a_commwell + 
+           Pain_mgt_awell, data=hospital)
+summary(m3)
+```
+
+This model exlains 15% of variance. Let's keep looking at more models. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+m4 <- lm(formula = I(Rating) ~ I(Dc_a_comm_well) + Nurse_a_commwell + 
+           Pain_mgt_awell + Staff_a_expmed, data=hospital)
+summary(m4)
+```
+
+This model only also explains 15% of the variance. Let's see if we can find a better predictive model. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+m5 <- lm(formula = I(Rating) ~ I(Dc_a_comm_well) + Nurse_a_commwell + 
+           Pain_mgt_awell + Staff_a_expmed + Recv_info_provided, 
+         data=hospital)
+summary(m5)
+```
+
+This model does a slightly better job at predicting the rating. Let's keep trying and see if we can find a even better one. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+m6 <- lm(formula = I(Rating) ~ I(Dc_a_comm_well) + Nurse_a_commwell + 
+           Pain_mgt_awell + Staff_a_expmed + Recv_info_provided + 
+           ED_1b, data=hospital)
+summary(m6)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+m7 <- m6 <- lm(formula = I(Rating) ~ I(Dc_a_comm_well) + Nurse_a_commwell + 
+                 Pain_mgt_awell + Staff_a_expmed + Recv_info_provided + 
+                 ED_1b + ED_2b, data=hospital)
+summary(m7)
+```
+
+It looks like this is the better model we have so far in predicting rating. This suggests that communication plays a role in improving star rating of a hospital, but at the same time, hospitals should also take measures to enhance the quality of other care. How about looking at models of enhancing patient perception?
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+p1 <- lm(formula = I(Pat_9)~I(Dc_a_comm_well), data=hospital)
+summary(p1)
+p2 <- lm(formula = I(Pat_9)~I(Dc_a_comm_well) + Nurse_a_commwell, data=hospital)
+summary(p2)
+p3 <- lm(formula = I(Pat_9) ~ I(Dc_a_comm_well) + Nurse_a_commwell + 
+           Pain_mgt_awell, data=hospital)
+summary(p3)
+p4 <- lm(formula = I(Pat_9) ~ I(Dc_a_comm_well) + Nurse_a_commwell + 
+           Pain_mgt_awell + Staff_a_expmed, data=hospital)
+summary(p4)
+p5 <- lm(formula = I(Pat_9) ~ I(Dc_a_comm_well) + Nurse_a_commwell + 
+           Pain_mgt_awell + Staff_a_expmed + Recv_info_provided, 
+         data=hospital)
+summary(p5)
+p6 <- lm(formula = I(Pat_9) ~ I(Dc_a_comm_well) + Nurse_a_commwell + 
+           Pain_mgt_awell + Staff_a_expmed + Recv_info_provided + 
+           ED_1b, data=hospital)
+summary(p6)
+p7 <- lm(formula = I(Pat_9) ~ I(Dc_a_comm_well) + Nurse_a_commwell + 
+           Pain_mgt_awell + Staff_a_expmed + Recv_info_provided + 
+           ED_1b + ED_2b, data=hospital)
+summary(p7)
+```
+
+It seems like formular 5 gives the best predictive result of all. This suggests that also communication alone won't improve a great deal on hospital star rating, it can greatly (about 65%) improve patient perception of a hospital. 
+
+###Multivariate Analysis
+
+###Talk about some of the relationships you observed in this part of the investigation. Were there features that strengthened each other in terms of looking at your feature(s) of interest?
+Rating, doctor communication and nurse communication with patient: from analyzing these three variables, I found that in hospitals with higher ratings, higher percentages of doctors there communicate well with patients. Similary, nurses in higher rating hospitals tend to communicate better with patients. 
+Rating, nurse communication, and pain management: from analyzing these variables, I found that nurses in higher rating hospitals consistently communicate well with patients as well as pain management being more consistently provided. 
+Rating, doctor communication, and pain management: by analyzing these three variables, I noticed that doctors in higher rating hospitals consistently communicate well with patients while pain management is more consistently provided to patients. 
+Rating, doctor communication, and patient recommendation: doctors in higher rating hospitals tend to have consistent well communications with patients while patients then tend to recommend that hospital to others. 
+Rating, nurse communication, and patient recommendation: similarly, nurses in higher rating hospitals tend to have more consistent good communication with patients where they tend to recommend the hospital to others. 
+Rating, nurse communication and ER wait time before patients being seen by a provider: in higher rating hospitals, when nurses have consistenly good communications with patients, their wait time in ER prior to being seen is lower. 
+Rating, nurse communication, and ER wait time before patients being admitted to the hospital: in higher rating hospitals, when nurses have consistently good communications with patients, their wait time in the ER prior to being admitted is lower. 
+
+###Were there any interesting or surprising interactions between features?
+ER wait time before a patient being seen by a provider in acute care hospitals are on average higher than that in critical access hospitals. 
+ER wait time before a patient being admitted to a hospital in acute care hospitals are on average higher than that in critical access hospitals. 
+
+###Did you create any models with your dataset? Discuss the strengths and limitations of your model.
+
+Linear model P5 can account for 65% of the variance in patient perception. While linear model for hospital rating only accounts for less than 20% of variance. This could due to the various ascepts that play a role in hospital rating. 
+------
+###Final Plots and Summary
+
+###Plot One
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+hospital_1 <- hospital[complete.cases(hospital$Rating),]
+plot1 <- ggplot(hospital_1, aes(x=Dc_a_comm_well, 
+                              y=Nurse_a_commwell, 
+                              color=factor(Rating)))+ 
+  geom_point(alpha=.4) + xlab("Doctors Always Communicate Well with Patients (%)") +
+  ylab("Nurses Always Communicate Well with Patients (%)") + 
+  labs(title='Nurses and Doctor Communication by Hospital Rating') + 
+  scale_color_brewer(palette = 'Set1') + xlim(55, 100) + 
+  theme(legend.title = element_text(face = 'bold'))+
+  scale_color_discrete(name = 'Rating') +
+  geom_smooth(color='yellow')
+plot1 <- ggplotly(plot1)
+plot1
+
+```
+
+###Description One
+This linear model plot indicates that doctors and nurses in higher rating hospitals tend to higher percentage of good communication with patients. 
+
+###Plot Two
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+hospital_1 <- hospital[complete.cases(hospital$Rating),]
+plot2 <-  ggplot(hospital_1, aes(x=Dc_a_comm_well, 
+                              y=ED_1b, 
+                              color=factor(Rating)))+ 
+  geom_point(alpha=.3) + 
+  xlab("Doctors Always Communicate Well with Patients (%)") +
+  scale_color_brewer(palette = 'Set1') + 
+  xlim(55, 100) + 
+  ylim(0, 650)+
+  theme(legend.title = element_text(face = 'bold'))+
+  scale_color_discrete(name = 'Rating') +
+  geom_smooth(color='yellow') +
+  labs(title = 
+         'Doctor Communication with Patients and ER Wait Time for Admssion') +
+  ylab('ER wait Time for Admission (Minutes)') +
+  xlab('Doctors that always Communicate Well (%)') + 
+  theme(plot.title = element_text(face='bold', size=10)) + 
+  theme(axis.title.x = element_text(face='bold', size = 10)) +
+  theme(axis.title.y = element_text(face='bold', size = 10, vjust = 1)) 
+  
+plot2<-ggplotly(plot2)
+plot2
+
+
+```
+
+###Description Two
+In general, the more doctors communicate with patients, the lower the ER wait time for patient admission to inpatients. Also, in hospitals with star rating between 3 and 5, doctors communicate more with patients. 
+
+
+###Plot Three
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+hospital_1 <- hospital[complete.cases(hospital$Rating),]
+st_comm_9 <- ggplot(hospital_1, aes(x=Staff_a_expmed, 
+                                    y=Pat_9, 
+                                    color = factor(Rating))) + 
+  geom_point(alpha=.3) + 
+  xlim(40, 100) + 
+  scale_color_brewer(palette = 'Set2') +
+  scale_color_discrete(name = 'Rating') +
+  geom_smooth(color='yellow') +
+  labs(title = 'Staff Communication and Patient Perception of 9 and Above') +
+  ylab('Patient Rating of 9 and Above (%)') +
+  xlab('Staff Communication about Medication (%)') + 
+  theme(plot.title = element_text(face='bold', size=10)) + 
+  theme(axis.title.x = element_text(face = 'bold', size = 10)) +
+  theme(axis.title.y = element_text(face = 'bold', size = 10, vjust = 1))
+st_comm_9 <- ggplotly(st_comm_9)
+st_comm_9
+```
+
+###Description Three
+In general, the more hospital staff communicate to patients about medication before them leaving the hospital, the more likely that the patients give the hospital a rating of 9 and above. Especially, in hospitals with rating between 3 and 5, staff tend to communicate more about medication to patients.  
+
+
+###Reflection
+This dataset contains rating and evaluation of 4806 hospitals across the country with 46 variables. I started by understanding individual variables in the data set, and then I explored interesting questions and leads as I continued to make observations on plots. Eventually, I explored the hospital rating and its relationship with other variables like quality of care, timeliness of care, communication, and other aspects of patient perception. What I found suprising was that high rating hospitals do not necessarily mean shorter wait time. The finding that staff's communications with patients can greatly improve patients' perception of the hospital can help hospital identify areas for improvement in regards of patient perception. 
+Some limitations of this dataset are that there are missing values for certain variables, which makes it difficult to make an analysis across all hospitals.
+
